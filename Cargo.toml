@@ -1,0 +1,16 @@
+[package]
+name = "w0bm-rs"
+version = "0.1.0"
+authors = ["belst <belst@w0bm.com>"]
+
+[dependencies]
+diesel = { version = "1.1", features = ["postgres"] }
+r2d2 = "0.8"
+r2d2-diesel = "1.0"
+dotenv = "0.11"
+rust-argon2 = "0.3"
+rocket = { git = "https://github.com/belst/rocket", branch = "requestInFromParam" }
+rocket_codegen = { git = "https://github.com/belst/rocket", branch = "requestInFromParam" }
+rocket_contrib = { git = "https://github.com/belst/rocket", branch = "requestInFromParam" }
+rand = "0.4"
+
