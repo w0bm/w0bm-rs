@@ -1,15 +1,8 @@
-use argon2::{Config, hash_encoded, verify_encoded};
+use argon2::{self, Config, hash_encoded, verify_encoded};
 use rand::{Rng, thread_rng};
-use rocket::response::content::Json;
-use rocket::response::Responder;
-use rocket::request::Request;
-use rocket::http::Status;
-
-use serde::ser::Serialize;
 
 pub fn hash_password(pw: &[u8]) -> argon2::Result<String> {
-    let mut salt = [0u8; 10];
-    thread_rng().fill(&mut salt[..]);
+    let salt: [u8; 10] = thread_rng().gen();
     hash_encoded(pw, &salt, &Config::default())
 }
 

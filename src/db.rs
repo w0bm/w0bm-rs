@@ -5,14 +5,15 @@ use std::ops::Deref;
 use rocket::http::Status;
 use rocket::request::{self, FromRequest};
 use rocket::{Request, State, Outcome};
+use r2d2;
 
 type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
 /// Initializes a database pool
-fn init_pool() -> Pool {
+pub fn init_pool() -> Pool {
     ::dotenv::dotenv().ok();
 
-    let manager = ConnectionManager::<PgConnection>::new(env!("DATABASE_URL", ""));
+    let manager = ConnectionManager::<PgConnection>::new(env!("DATABASE_URL"));
     r2d2::Pool::new(manager).expect("Could not initialize Database")
 }
 
@@ -25,7 +26,7 @@ impl<'a, 'r> FromRequest<'a, 'r> for DbConn {
     type Error = ();
 
     fn from_request(req: &'a Request<'r>) -> request::Outcome<DbConn, Self::Error> {
-        let pool = request.guard::<State<Pool>>()?;
+        let pool = req.guard::<State<Pool>>()?;
         match pool.get() {
             Ok(conn) => Outcome::Success(DbConn(conn)),
             Err(_) => Outcome::Failure((Status::ServiceUnavailable, ())),
