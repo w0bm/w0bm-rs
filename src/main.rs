@@ -10,13 +10,15 @@ extern crate r2d2;
 extern crate r2d2_diesel;
 extern crate chrono;
 extern crate argon2;
-extern crate rand;
 
 #[macro_use]
 extern crate serde_derive;
 
 extern crate serde;
 extern crate serde_json;
+
+extern crate jsonwebtoken as jwt;
+extern crate ring;
 
 mod schema;
 mod models;
@@ -26,9 +28,11 @@ mod util;
 
 
 fn main() {
+    let key = util::generate_secret().expect("Error generating random secret");
     rocket::ignite()
         .mount("/api/v1",
                routes![])
         .manage(db::init_pool())
+        .manage(key)
         .launch();
 }
