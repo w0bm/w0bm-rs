@@ -1,4 +1,3 @@
-
 use chrono::prelude::*;
 use diesel::prelude::*;
 use schema::*;
@@ -20,7 +19,6 @@ type WithId = ::diesel::dsl::Eq<videos::id, i64>;
 type ById = ::diesel::dsl::Filter<videos::table, WithId>;
 
 impl Video {
-
     pub fn with_id(id: i64) -> WithId {
         videos::id.eq(id)
     }
@@ -28,8 +26,4 @@ impl Video {
     pub fn by_id(id: i64) -> ById {
         videos::dsl::videos.filter(Self::with_id(id))
     }
-
-//     pub fn all() -> All {
-//         videos::table
-//     }
 }

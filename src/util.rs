@@ -1,10 +1,12 @@
-use argon2::{self, Config, hash_encoded, verify_encoded};
+use argon2::{self, hash_encoded, verify_encoded, Config};
 use ring::rand::*;
 use std::ops::Deref;
 
 pub fn hash_password(pw: &[u8]) -> argon2::Result<String> {
     let mut salt = [0u8; 10];
-    SystemRandom::new().fill(&mut salt).map_err(|_| argon2::Error::DecodingFail)?;
+    SystemRandom::new()
+        .fill(&mut salt)
+        .map_err(|_| argon2::Error::DecodingFail)?;
     hash_encoded(pw, &salt, &Config::default())
 }
 
