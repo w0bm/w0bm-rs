@@ -2,44 +2,62 @@ use chrono::{Utc, DateTime};
 use rocket::{State, Outcome, http::{RawStr, Status}};
 use rocket::request::{self, FromRequest, Request, FromParam};
 use diesel::prelude::*;
-use ::schema::users;
+use ::schema::*;
 use ::db::DbConn;
 use ::util::*;
 use jwt::{Validation, decode};
 
 #[derive(Debug, Clone, Serialize, Queryable, Identifiable, PartialEq)]
 pub struct User {
-    id: i64,
-    username: String,
+    pub id: i64,
+    pub username: String,
     #[serde(skip)]
     password: String,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
-    deleted_at: Option<DateTime<Utc>>,
-    banned: Option<DateTime<Utc>>,
-    banreason: Option<String>,
-    filters: Vec<String>,
-    groups: Vec<String>,
-    avatar: Option<String>,
-    description: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
+    pub banned: Option<DateTime<Utc>>,
+    pub banreason: Option<String>,
+    pub filters: Vec<String>,
+    pub groups: Vec<String>,
+    pub avatar: Option<String>,
+    pub description: Option<String>,
 }
 
-#[derive(Debug, Clone, Insertable)]
+#[derive(Debug, Insertable, Deserialize)]
 #[table_name="users"]
-pub struct NewUser<'a> {
-    username: &'a str,
-    password: &'a str,
+pub struct NewUser {
+    pub username: String,
+    pub password: String,
 }
+
+type WithId = ::diesel::dsl::Eq<users::id, i64>;
+type ById = ::diesel::dsl::Filter<users::table, WithId>;
+type WithUsername<'a> = ::diesel::dsl::Eq<users::username, &'a str>;
+type ByUsername<'a> = ::diesel::dsl::Filter<users::table, WithUsername<'a>>;
+
 
 impl User {
+    pub fn with_id(id: i64) -> WithId {
+        users::id.eq(id)
+    }
+    pub fn by_id(id: i64) -> ById {
+        ::schema::users::dsl::users.filter(Self::with_id(id))
+    }
+    pub fn with_username(username: &str) -> WithUsername {
+        users::username.eq(username)
+    }
+    pub fn by_username(username: &str) -> ByUsername {
+        ::schema::users::dsl::users.filter(Self::with_username(username))
+    }
     pub fn check_pw(&self, pw: &[u8]) -> bool {
         verify_password(&self.password, pw)
     }
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Hash)]
-struct Token {
-    user_id: i64
+pub struct Token {
+    pub user_id: i64
 }
 
 impl<'a, 'r> FromRequest<'a, 'r> for User {
@@ -77,7 +95,6 @@ impl<'a> FromParam<'a> for User {
 
         users.filter(username.eq(uname))
             .first(&*conn)
-            //.map(|u| User { password: "".into(), ..u })
             .map_err(|_| ())
     }
     fn from_param(_: &'a RawStr) -> Result<Self, Self::Error> {

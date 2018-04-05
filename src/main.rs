@@ -30,6 +30,11 @@ mod util;
 fn main() {
     let key = util::generate_secret().expect("Error generating random secret");
     rocket::ignite()
+        .mount("/auth",
+            routes![
+                controllers::user::login,
+                controllers::user::register,
+            ])
         .mount("/api/v1",
                routes![])
         .manage(db::init_pool())
