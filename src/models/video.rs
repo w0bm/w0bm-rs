@@ -1,18 +1,19 @@
 use chrono::prelude::*;
+use db::DbConn;
 use diesel::prelude::*;
 use schema::*;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Queryable, Identifiable, Associations)]
 pub struct Video {
-    id: i64,
-    file: String,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
-    deleted_at: Option<DateTime<Utc>>,
-    hash: String,
-    tags: Vec<String>,
-    title: Option<String>,
-    description: Option<String>,
+    pub id: i64,
+    pub file: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
+    pub hash: String,
+    pub tags: Vec<String>,
+    pub title: Option<String>,
+    pub description: Option<String>,
 }
 
 type WithId = ::diesel::dsl::Eq<videos::id, i64>;
@@ -25,5 +26,23 @@ impl Video {
 
     pub fn by_id(id: i64) -> ById {
         videos::dsl::videos.filter(Self::with_id(id))
+    }
+
+    pub fn random(filters: &[String], conn: DbConn) -> QueryResult<Self> {
+        use schema::videos::dsl::*;
+
+        let c = videos
+            .filter(tags.contains(filters))
+            .count()
+            .get_result(&*conn)?;
+        if c < 1 {
+            return Err(::diesel::NotFound);
+        }
+        let s = ::util::rand_range(0, c);
+
+        videos
+            .filter(tags.contains(filters))
+            .offset(s)
+            .first(&*conn)
     }
 }

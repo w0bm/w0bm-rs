@@ -1,4 +1,5 @@
 use argon2::{self, hash_encoded, verify_encoded, Config};
+use rand::distributions::{Range, Sample};
 use ring::rand::*;
 use std::ops::Deref;
 
@@ -28,4 +29,9 @@ pub fn generate_secret() -> Result<Secret, ::ring::error::Unspecified> {
     let mut buf = [0u8; 32];
     SystemRandom::new().fill(&mut buf)?;
     Ok(Secret(buf))
+}
+
+pub fn rand_range(lower: i64, upper: i64) -> i64 {
+    let mut rng = ::rand::thread_rng();
+    Range::new(lower, upper).sample(&mut rng)
 }

@@ -1,9 +1,9 @@
 use chrono::{DateTime, Utc};
+use db::DbConn;
 use diesel::prelude::*;
 use jwt::{decode, Validation};
 use rocket::request::{self, FromParam, FromRequest, Request};
 use rocket::{Outcome, State, http::{RawStr, Status}};
-use db::DbConn;
 use schema::*;
 use util::*;
 

@@ -18,6 +18,7 @@ extern crate serde;
 extern crate serde_json;
 
 extern crate jsonwebtoken as jwt;
+extern crate rand;
 extern crate ring;
 
 mod controllers;
@@ -33,7 +34,7 @@ fn main() {
             "/auth",
             routes![controllers::user::login, controllers::user::register,],
         )
-        .mount("/api/v1", routes![])
+        .mount("/api/v1", routes![controllers::video::video_random,])
         .manage(db::init_pool())
         .manage(key)
         .launch();
