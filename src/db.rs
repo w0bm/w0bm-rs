@@ -12,7 +12,7 @@ type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
 pub fn init_pool() -> Pool {
     ::dotenv::dotenv().ok();
 
-    let manager = ConnectionManager::<PgConnection>::new(env!("DATABASE_URL"));
+    let manager = ConnectionManager::<PgConnection>::new(::std::env::var("DATABASE_URL").expect("DATABASE_URL"));
     r2d2::Pool::new(manager).expect("Could not initialize Database")
 }
 
