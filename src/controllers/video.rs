@@ -9,7 +9,7 @@ use std::error::Error;
 
 #[get("/video/random")]
 pub fn video_random(conn: DbConn, u: Option<User>) -> Result<Json<Video>, status::Custom<String>> {
-    let def_filter = vec!["sfw".into()];
+    let def_filter = vec!["nsfw".into()];
     let f = u.map(|usr| usr.filters).unwrap_or(def_filter);
 
     Video::random(&f, conn)

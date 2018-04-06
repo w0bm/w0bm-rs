@@ -1,6 +1,7 @@
 use chrono::prelude::*;
 use db::DbConn;
 use diesel::prelude::*;
+use diesel::dsl::not;
 use schema::*;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Queryable, Identifiable, Associations)]
@@ -32,7 +33,7 @@ impl Video {
         use schema::videos::dsl::*;
 
         let c = videos
-            .filter(tags.contains(filters))
+            .filter(not(tags.overlaps_with(filters)))
             .count()
             .get_result(&*conn)?;
         if c < 1 {
