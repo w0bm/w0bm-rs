@@ -1,4 +1,4 @@
-# w0bm v2
+# w0bm v2 [![Build Status](https://travis-ci.org/w0bm/w0bm-rs.svg?branch=master)](https://travis-ci.org/w0bm/w0bm-rs)
 
 Experimental backend for w0bm
 
@@ -10,6 +10,9 @@ Install via `curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain night
 
 1. `cargo install diesel_cli`
 2. Set up .env or set `DATABASE_ENV` env variable
-3. `diesel migration run`
-4. `cargo run`
+3. `diesel setup`
+4. `cargo build`
 
+## Running
+
+`cargo run`
