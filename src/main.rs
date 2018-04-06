@@ -34,7 +34,13 @@ fn main() {
             "/auth",
             routes![controllers::user::login, controllers::user::register,],
         )
-        .mount("/api/v1", routes![controllers::video::video_random,])
+        .mount(
+            "/api/v1",
+            routes![
+                controllers::video::video_random,
+                controllers::video::video_id,
+            ],
+        )
         .manage(db::init_pool())
         .manage(key)
         .launch();

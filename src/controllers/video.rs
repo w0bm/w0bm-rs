@@ -16,3 +16,8 @@ pub fn video_random(conn: DbConn, u: Option<User>) -> Result<Json<Video>, status
         .map(|v| Json(v))
         .map_err(|e| status::Custom(Status::NotFound, format!("{}", e.description())))
 }
+
+#[get("/video/<video>")]
+pub fn video_id(video: Video) -> Json<Video> {
+    Json(video)
+}

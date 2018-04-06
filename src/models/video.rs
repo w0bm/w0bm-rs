@@ -4,6 +4,9 @@ use diesel::dsl::not;
 use diesel::prelude::*;
 use schema::*;
 
+use rocket::request::{FromParam, Request};
+use rocket::{Outcome, http::RawStr};
+
 #[derive(Debug, Clone, PartialEq, Serialize, Queryable, Identifiable, Associations)]
 #[belongs_to(User)]
 pub struct Video {
@@ -46,5 +49,22 @@ impl Video {
             .filter(tags.contains(filters))
             .offset(s)
             .first(&*conn)
+    }
+}
+
+impl<'a> FromParam<'a> for Video {
+    type Error = ();
+    fn from_param_with_request(param: &'a RawStr, req: &'a Request) -> Result<Self, Self::Error> {
+        let vid = param.parse().map_err(|_| ())?;
+        let conn = match req.guard::<DbConn>() {
+            Outcome::Success(c) => c,
+            _ => return Err(()),
+        };
+
+        Self::by_id(vid).first(&*conn).map_err(|_| ())
+    }
+
+    fn from_param(_: &'a RawStr) -> Result<Self, Self::Error> {
+        unreachable!()
     }
 }
