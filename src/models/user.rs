@@ -4,8 +4,9 @@ use diesel::prelude::*;
 use jwt::{decode, Validation};
 use rocket::request::{self, FromParam, FromRequest, Request};
 use rocket::{Outcome, State, http::{RawStr, Status}};
-use schema::*;
+use schema::users;
 use util::*;
+use std::ops::Deref;
 
 #[derive(Debug, Clone, Serialize, Queryable, Identifiable, PartialEq)]
 pub struct User {
@@ -22,6 +23,29 @@ pub struct User {
     pub groups: Vec<String>,
     pub avatar: Option<String>,
     pub description: Option<String>,
+}
+
+pub struct Admin(pub User);
+
+impl<'a, 'r> FromRequest<'a, 'r> for Admin {
+    type Error = ();
+    fn from_request(req: &'a Request<'r>) -> request::Outcome<Admin, ()> {
+        let u = req.guard::<User>()?;
+
+        if u.groups.iter().any(|g| g == "admin") {
+            return Outcome::Success(Admin(u))
+        } else {
+            return Outcome::Forward(());
+        }
+    }
+}
+
+impl Deref for Admin {
+    type Target = User;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 #[derive(Debug, Insertable, Deserialize)]
@@ -41,13 +65,13 @@ impl User {
         users::id.eq(id)
     }
     pub fn by_id(id: i64) -> ById {
-        ::schema::users::dsl::users.filter(Self::with_id(id))
+        users::dsl::users.filter(Self::with_id(id))
     }
     pub fn with_username(username: &str) -> WithUsername {
         users::username.eq(username)
     }
     pub fn by_username(username: &str) -> ByUsername {
-        ::schema::users::dsl::users.filter(Self::with_username(username))
+        users::dsl::users.filter(Self::with_username(username))
     }
     pub fn check_pw(&self, pw: &[u8]) -> bool {
         verify_password(&self.password, pw)
@@ -63,7 +87,7 @@ impl<'a, 'r> FromRequest<'a, 'r> for User {
     type Error = ();
 
     fn from_request(req: &'a Request<'r>) -> request::Outcome<User, ()> {
-        use schema::users::dsl::*;
+        use self::users::dsl;
         let token = match req.headers().get_one("Authorization") {
             Some(a) if a.starts_with("Bearer ") => &a[7..],
             _ => return Outcome::Forward(()),
@@ -75,7 +99,7 @@ impl<'a, 'r> FromRequest<'a, 'r> for User {
         };
         let conn = req.guard::<DbConn>()?;
 
-        match users.filter(id.eq(token)).first(&*conn) {
+        match dsl::users.filter(dsl::id.eq(token)).first(&*conn) {
             Ok(u) => Outcome::Success(u),
             Err(_) => Outcome::Failure((Status::NotFound, ())),
         }
@@ -85,15 +109,15 @@ impl<'a, 'r> FromRequest<'a, 'r> for User {
 impl<'a> FromParam<'a> for User {
     type Error = ();
     fn from_param_with_request(param: &'a RawStr, req: &'a Request) -> Result<Self, Self::Error> {
-        use schema::users::dsl::*;
+        use self::users::dsl;
         let uname = param.url_decode().map_err(|_| ())?;
         let conn = match req.guard::<DbConn>() {
             Outcome::Success(c) => c,
             _ => return Err(()),
         };
 
-        users
-            .filter(username.eq(uname))
+        dsl::users
+            .filter(dsl::username.eq(uname))
             .first(&*conn)
             .map_err(|_| ())
     }

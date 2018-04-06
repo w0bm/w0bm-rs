@@ -5,6 +5,7 @@ use diesel::dsl::not;
 use schema::*;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Queryable, Identifiable, Associations)]
+#[belongs_to(User)]
 pub struct Video {
     pub id: i64,
     pub file: String,

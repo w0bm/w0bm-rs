@@ -42,7 +42,7 @@ table! {
         playlist_id -> Int8,
         video_id -> Int8,
         created_at -> Timestamptz,
-        odering -> Nullable<Int8>,
+        ordering -> Nullable<Int8>,
     }
 }
 
@@ -89,6 +89,7 @@ joinable!(comments -> videos (video_id));
 joinable!(playlist_video -> playlists (playlist_id));
 joinable!(playlist_video -> videos (video_id));
 joinable!(playlists -> users (user_id));
+
 
 allow_tables_to_appear_in_same_query!(
     comments,

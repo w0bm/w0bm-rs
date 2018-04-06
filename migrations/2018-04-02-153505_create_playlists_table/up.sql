@@ -16,7 +16,7 @@ CREATE TABLE playlist_video (
     playlist_id BIGINT NOT NULL REFERENCES playlists (id),
     video_id BIGINT NOT NULL REFERENCES videos (id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    odering BIGINT,
+    ordering BIGINT,
     PRIMARY KEY (playlist_id, video_id)
 );
 
