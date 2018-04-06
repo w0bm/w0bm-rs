@@ -5,8 +5,8 @@ use jwt::{decode, Validation};
 use rocket::request::{self, FromParam, FromRequest, Request};
 use rocket::{Outcome, State, http::{RawStr, Status}};
 use schema::users;
-use util::*;
 use std::ops::Deref;
+use util::*;
 
 #[derive(Debug, Clone, Serialize, Queryable, Identifiable, PartialEq)]
 pub struct User {
@@ -33,7 +33,7 @@ impl<'a, 'r> FromRequest<'a, 'r> for Admin {
         let u = req.guard::<User>()?;
 
         if u.groups.iter().any(|g| g == "admin") {
-            return Outcome::Success(Admin(u))
+            return Outcome::Success(Admin(u));
         } else {
             return Outcome::Forward(());
         }

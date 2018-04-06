@@ -4,6 +4,7 @@ use r2d2_diesel::ConnectionManager;
 use rocket::http::Status;
 use rocket::request::{self, FromRequest};
 use rocket::{Outcome, Request, State};
+use std::env;
 use std::ops::Deref;
 
 type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
@@ -12,7 +13,8 @@ type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
 pub fn init_pool() -> Pool {
     ::dotenv::dotenv().ok();
 
-    let manager = ConnectionManager::<PgConnection>::new(::std::env::var("DATABASE_URL").expect("DATABASE_URL"));
+    let manager =
+        ConnectionManager::<PgConnection>::new(env::var("DATABASE_URL").expect("DATABASE_URL"));
     r2d2::Pool::new(manager).expect("Could not initialize Database")
 }
 

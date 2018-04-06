@@ -1,7 +1,7 @@
 use chrono::prelude::*;
 use db::DbConn;
-use diesel::prelude::*;
 use diesel::dsl::not;
+use diesel::prelude::*;
 use schema::*;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Queryable, Identifiable, Associations)]

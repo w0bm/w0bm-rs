@@ -90,7 +90,6 @@ joinable!(playlist_video -> playlists (playlist_id));
 joinable!(playlist_video -> videos (video_id));
 joinable!(playlists -> users (user_id));
 
-
 allow_tables_to_appear_in_same_query!(
     comments,
     messages,

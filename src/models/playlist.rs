@@ -1,9 +1,9 @@
-use chrono::{DateTime, Utc};
-use schema::{playlist_video, playlists};
-use db::DbConn;
-use super::video::Video;
 use super::user::User;
+use super::video::Video;
+use chrono::{DateTime, Utc};
+use db::DbConn;
 use diesel::prelude::*;
+use schema::{playlist_video, playlists};
 use util::rand_range;
 
 #[derive(Debug, Queryable, Identifiable, Serialize, Deserialize, Associations)]
@@ -46,7 +46,7 @@ impl PlaylistMessage {
             prev: None,
             next: None,
             last: None,
-            video
+            video,
         }
     }
 }
@@ -62,19 +62,17 @@ impl Playlist {
         playlists::dsl::playlists.filter(Self::with_id(id))
     }
     pub fn random_video(&self, filter: &[String], conn: DbConn) -> QueryResult<PlaylistMessage> {
-        use ::schema::videos::dsl as v;
-        use ::schema::playlist_video as pv;
-        use ::diesel::dsl::{count, not};
+        use diesel::dsl::not;
+        use schema::playlist_video as pv;
+        use schema::videos::dsl as v;
 
-        let query = v::videos.inner_join(pv::table)
-            .filter(
-                pv::playlist_id.eq(self.id)
-                .and(not(v::tags.overlaps_with(filter)))
-            );
+        let query = v::videos.inner_join(pv::table).filter(
+            pv::playlist_id
+                .eq(self.id)
+                .and(not(v::tags.overlaps_with(filter))),
+        );
 
-        let c = query
-            .select(count(v::id))
-            .get_result(&*conn)?;
+        let c = query.count().get_result(&*conn)?;
 
         if c < 1 {
             return Err(::diesel::NotFound);
@@ -84,19 +82,18 @@ impl Playlist {
         let prev_exists = s != 0;
         let next_exists = s != c - 1;
 
-        let limit = 1 + [prev_exists, next_exists].into_iter().filter(|&&e| e).count() as i64;
+        let limit = 1 + [prev_exists, next_exists]
+            .into_iter()
+            .filter(|&&e| e)
+            .count() as i64;
 
-        let query2 = query
-            .offset(s)
-            .limit(limit);
+        let query2 = query.offset(s).limit(limit);
         let mut videos: Vec<(Video, PlaylistVideo)> = if self.editable {
             query2
                 .order((pv::ordering.asc(), pv::created_at.asc()))
                 .load(&*conn)?
         } else {
-            query2
-                .order(pv::created_at.asc())
-                .load(&*conn)?
+            query2.order(pv::created_at.asc()).load(&*conn)?
         };
 
         let prev = if prev_exists {
@@ -127,9 +124,7 @@ impl Playlist {
                 .first(&*conn)?;
             Some(v.id)
         } else {
-            let (v, _): (Video, PlaylistVideo) = query
-                .order(pv::created_at.asc())
-                .first(&*conn)?;
+            let (v, _): (Video, PlaylistVideo) = query.order(pv::created_at.asc()).first(&*conn)?;
             Some(v.id)
         };
 
@@ -143,9 +138,7 @@ impl Playlist {
                 .first(&*conn)?;
             Some(v.id)
         } else {
-            let (v, _): (Video, PlaylistVideo) = query
-                .order(pv::created_at.desc())
-                .first(&*conn)?;
+            let (v, _): (Video, PlaylistVideo) = query.order(pv::created_at.desc()).first(&*conn)?;
             Some(v.id)
         };
 
@@ -158,4 +151,3 @@ impl Playlist {
         })
     }
 }
-
