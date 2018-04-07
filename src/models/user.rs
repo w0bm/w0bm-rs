@@ -33,9 +33,9 @@ impl<'a, 'r> FromRequest<'a, 'r> for Admin {
         let u = req.guard::<User>()?;
 
         if u.groups.iter().any(|g| g == "admin") {
-            return Outcome::Success(Admin(u));
+            Outcome::Success(Admin(u))
         } else {
-            return Outcome::Forward(());
+            Outcome::Forward(())
         }
     }
 }

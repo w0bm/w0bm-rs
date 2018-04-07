@@ -4,6 +4,7 @@ use diesel::dsl::not;
 use diesel::prelude::*;
 use schema::*;
 
+use super::playlist::PlaylistMessage;
 use rocket::request::{FromParam, Request};
 use rocket::{Outcome, http::RawStr};
 
@@ -33,22 +34,67 @@ impl Video {
         videos::dsl::videos.filter(Self::with_id(id))
     }
 
-    pub fn random(filters: &[String], conn: DbConn) -> QueryResult<Self> {
+    pub fn random(filters: &[String], conn: DbConn) -> QueryResult<PlaylistMessage> {
         use schema::videos::dsl::*;
 
-        let c = videos
-            .filter(not(tags.overlaps_with(filters)))
-            .count()
-            .get_result(&*conn)?;
+        let query = videos.filter(not(tags.overlaps_with(filters)));
+
+        let c = query.count().get_result(&*conn)?;
         if c < 1 {
             return Err(::diesel::NotFound);
         }
-        let s = ::util::rand_range(0, c);
 
-        videos
-            .filter(tags.contains(filters))
+        // Find best option to do this (probably limit 3 always, and clamp s between [0, c))
+        // then just count result
+        let (limit, s) = match ::util::rand_range(0, c) {
+            0 => (2, 0),
+            n => (3, n - 1),
+        };
+
+        let mut vids: Vec<Self> = query
+            .order(created_at.asc())
             .offset(s)
-            .first(&*conn)
+            .limit(limit)
+            .load(&*conn)?;
+
+        let prev = if limit == 3 { Some(vids[0].id) } else { None };
+        let next = if limit == 2 && vids.len() == 2 {
+            Some(vids[1].id)
+        } else if limit == 3 && vids.len() == 3 {
+            Some(vids[2].id)
+        } else {
+            None
+        };
+
+        let first = if prev.is_none() {
+            None
+        } else if prev.is_some() && s == 0 {
+            prev
+        } else {
+            Some(query.select(id).order(created_at.asc()).first(&*conn)?)
+        };
+
+        let last = if next.is_none() {
+            None
+        } else if next.is_some() && s == c - 2 {
+            next
+        } else {
+            Some(query.select(id).order(created_at.desc()).first(&*conn)?)
+        };
+
+        let video = if limit == 2 {
+            vids.remove(0)
+        } else {
+            vids.remove(1)
+        };
+
+        Ok(PlaylistMessage {
+            video,
+            prev,
+            first,
+            next,
+            last,
+        })
     }
 }
 

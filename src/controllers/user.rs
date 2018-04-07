@@ -18,7 +18,7 @@ pub fn login(
         .first(&*conn)
         .map_err(|_| status::Custom(Status::Unauthorized, "User not found".into()))?;
 
-    if !u.check_pw(&creds.password.as_bytes()) {
+    if !u.check_pw(creds.password.as_bytes()) {
         return Err(status::Custom(
             Status::Unauthorized,
             "Invalid Password".into(),
