@@ -1,6 +1,7 @@
 use chrono::prelude::*;
 use db::DbConn;
 use diesel::dsl::not;
+use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use schema::*;
 
@@ -34,12 +35,12 @@ impl Video {
         videos::dsl::videos.filter(Self::with_id(id))
     }
 
-    pub fn random(filters: &[String], conn: DbConn) -> QueryResult<PlaylistMessage> {
+    pub fn random(filters: &[String], conn: &PgConnection) -> QueryResult<PlaylistMessage> {
         use schema::videos::dsl::*;
 
         let query = videos.filter(not(tags.overlaps_with(filters)));
 
-        let c = query.count().get_result(&*conn)?;
+        let c = query.count().get_result(conn)?;
         if c < 1 {
             return Err(::diesel::NotFound);
         }
@@ -55,7 +56,7 @@ impl Video {
             .order(created_at.asc())
             .offset(s)
             .limit(limit)
-            .load(&*conn)?;
+            .load(conn)?;
 
         let prev = if limit == 3 { Some(vids[0].id) } else { None };
         let next = if limit == 2 && vids.len() == 2 {
@@ -66,20 +67,16 @@ impl Video {
             None
         };
 
-        let first = if prev.is_none() {
-            None
-        } else if prev.is_some() && s == 0 {
-            prev
-        } else {
-            Some(query.select(id).order(created_at.asc()).first(&*conn)?)
+        let first = match prev {
+            None => None,
+            p if s == 0 => p,
+            _ => Some(query.select(id).order(created_at.asc()).first(conn)?),
         };
 
-        let last = if next.is_none() {
-            None
-        } else if next.is_some() && s == c - 2 {
-            next
-        } else {
-            Some(query.select(id).order(created_at.desc()).first(&*conn)?)
+        let last = match next {
+            None => None,
+            n if s == c - 2 => n,
+            _ => Some(query.select(id).order(created_at.desc()).first(conn)?),
         };
 
         let video = if limit == 2 {

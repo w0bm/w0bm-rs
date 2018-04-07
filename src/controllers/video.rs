@@ -16,7 +16,7 @@ pub fn video_random(
     let def_filter = vec!["nsfw".into()];
     let f = u.map(|usr| usr.filters).unwrap_or(def_filter);
 
-    Video::random(&f, conn)
+    Video::random(&f, &conn)
         .map(Json)
         .map_err(|e| status::Custom(Status::NotFound, format!("{}", e.description())))
 }

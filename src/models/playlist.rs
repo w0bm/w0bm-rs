@@ -1,7 +1,7 @@
 use super::user::User;
 use super::video::Video;
 use chrono::{DateTime, Utc};
-use db::DbConn;
+use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use schema::{playlist_video, playlists};
 use util::rand_range;
@@ -61,7 +61,11 @@ impl Playlist {
     pub fn by_id(id: i64) -> ById {
         playlists::dsl::playlists.filter(Self::with_id(id))
     }
-    pub fn random_video(&self, filter: &[String], conn: DbConn) -> QueryResult<PlaylistMessage> {
+    pub fn random_video(
+        &self,
+        filter: &[String],
+        conn: &PgConnection,
+    ) -> QueryResult<PlaylistMessage> {
         use diesel::dsl::not;
         use schema::playlist_video as pv;
         use schema::videos::dsl as v;
@@ -72,7 +76,7 @@ impl Playlist {
                 .and(not(v::tags.overlaps_with(filter))),
         );
 
-        let c = query.count().get_result(&*conn)?;
+        let c = query.count().get_result(conn)?;
 
         if c < 1 {
             return Err(::diesel::NotFound);
@@ -93,7 +97,7 @@ impl Playlist {
                 .order((pv::ordering.asc(), pv::created_at.asc()))
                 .load(&*conn)?
         } else {
-            query2.order(pv::created_at.asc()).load(&*conn)?
+            query2.order(pv::created_at.asc()).load(conn)?
         };
 
         let prev = if prev_exists {
@@ -121,10 +125,10 @@ impl Playlist {
         } else if self.editable {
             let (v, _): (Video, PlaylistVideo) = query
                 .order((pv::ordering.asc(), pv::created_at.asc()))
-                .first(&*conn)?;
+                .first(conn)?;
             Some(v.id)
         } else {
-            let (v, _): (Video, PlaylistVideo) = query.order(pv::created_at.asc()).first(&*conn)?;
+            let (v, _): (Video, PlaylistVideo) = query.order(pv::created_at.asc()).first(conn)?;
             Some(v.id)
         };
 
@@ -138,7 +142,7 @@ impl Playlist {
                 .first(&*conn)?;
             Some(v.id)
         } else {
-            let (v, _): (Video, PlaylistVideo) = query.order(pv::created_at.desc()).first(&*conn)?;
+            let (v, _): (Video, PlaylistVideo) = query.order(pv::created_at.desc()).first(conn)?;
             Some(v.id)
         };
 
