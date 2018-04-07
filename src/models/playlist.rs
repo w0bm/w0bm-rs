@@ -81,18 +81,14 @@ impl Playlist {
         if c < 1 {
             return Err(::diesel::NotFound);
         }
-        let s = rand_range(0, c);
 
-        let prev_exists = s != 0;
-        let next_exists = s != c - 1;
-
-        let limit = 1 + [prev_exists, next_exists]
-            .into_iter()
-            .filter(|&&e| e)
-            .count() as i64;
+        let (limit, s) = match rand_range(0, c) {
+            0 => (2, 0),
+            n => (3, n - 1),
+        };
 
         let query2 = query.offset(s).limit(limit);
-        let mut videos: Vec<(Video, PlaylistVideo)> = if self.editable {
+        let mut vids: Vec<(Video, PlaylistVideo)> = if self.editable {
             query2
                 .order((pv::ordering.asc(), pv::created_at.asc()))
                 .load(&*conn)?
@@ -100,50 +96,45 @@ impl Playlist {
             query2.order(pv::created_at.asc()).load(conn)?
         };
 
-        let prev = if prev_exists {
-            Some(videos[0].0.id)
+        let prev = if limit == 3 { Some(vids[0].0.id) } else { None };
+        let next = if limit == 2 && vids.len() == 2 {
+            Some(vids[1].0.id)
+        } else if limit == 3 && vids.len() == 3 {
+            Some(vids[2].0.id)
         } else {
             None
         };
 
-        let next = if next_exists {
-            Some(videos[2].0.id)
-        } else {
-            None
+        let query2 = query2.select(v::id);
+
+        let first = match prev {
+            None => None,
+            p if s == 0 => p,
+            _ => Some(if self.editable {
+                query2
+                    .order((pv::ordering.asc(), pv::created_at.asc()))
+                    .first(conn)?
+            } else {
+                query2.order(pv::created_at.asc()).first(conn)?
+            }),
         };
 
-        let video = if prev_exists {
-            videos.remove(1).0
-        } else {
-            videos.remove(0).0
+        let last = match next {
+            None => None,
+            p if s == c - 2 => p,
+            _ => Some(if self.editable {
+                query2
+                    .order((pv::ordering.desc(), pv::created_at.desc()))
+                    .first(conn)?
+            } else {
+                query2.order(pv::created_at.desc()).first(conn)?
+            }),
         };
 
-        let first = if !prev_exists {
-            None
-        } else if s == 0 {
-            prev
-        } else if self.editable {
-            let (v, _): (Video, PlaylistVideo) = query
-                .order((pv::ordering.asc(), pv::created_at.asc()))
-                .first(conn)?;
-            Some(v.id)
+        let (video, _) = if limit == 2 {
+            vids.remove(0)
         } else {
-            let (v, _): (Video, PlaylistVideo) = query.order(pv::created_at.asc()).first(conn)?;
-            Some(v.id)
-        };
-
-        let last = if !next_exists {
-            None
-        } else if s == c - 1 {
-            next
-        } else if self.editable {
-            let (v, _): (Video, PlaylistVideo) = query
-                .order((pv::ordering.desc(), pv::created_at.desc()))
-                .first(&*conn)?;
-            Some(v.id)
-        } else {
-            let (v, _): (Video, PlaylistVideo) = query.order(pv::created_at.desc()).first(conn)?;
-            Some(v.id)
+            vids.remove(1)
         };
 
         Ok(PlaylistMessage {
