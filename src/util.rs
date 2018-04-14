@@ -2,6 +2,7 @@ use argon2::{self, hash_encoded, verify_encoded, Config};
 use rand::distributions::{Range, Sample};
 use ring::rand::*;
 use std::ops::Deref;
+use slug::slugify;
 
 pub fn hash_password(pw: &[u8]) -> argon2::Result<String> {
     let mut salt = [0u8; 10];
@@ -34,4 +35,8 @@ pub fn generate_secret() -> Result<Secret, ::ring::error::Unspecified> {
 pub fn rand_range(lower: i64, upper: i64) -> i64 {
     let mut rng = ::rand::thread_rng();
     Range::new(lower, upper).sample(&mut rng)
+}
+
+pub fn normalize<S: AsRef<str>>(s: S) -> String {
+    slugify(s).replace('-', "")
 }

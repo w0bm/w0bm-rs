@@ -20,6 +20,7 @@ extern crate serde_json;
 extern crate jsonwebtoken as jwt;
 extern crate rand;
 extern crate ring;
+extern crate slug;
 
 mod controllers;
 mod db;
