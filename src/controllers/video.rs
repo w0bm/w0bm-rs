@@ -4,6 +4,7 @@ use rocket_contrib::Json;
 
 use db::DbConn;
 use models::playlist::PlaylistMessage;
+use models::tag::Tag;
 use models::user::User;
 use models::video::Video;
 use std::error::Error;
@@ -24,4 +25,18 @@ pub fn video_random(
 #[get("/video/<video>")]
 pub fn video_id(video: Video) -> Json<Video> {
     Json(video)
+}
+
+#[get("/video/<video>/tags")]
+pub fn video_tags(video: Video, conn: DbConn) -> Json<Vec<Tag>> {
+    use diesel::dsl::any;
+    use diesel::prelude::*;
+    use schema::tags::dsl::*;
+
+    // TODO: Error handling. get rid of expect
+    Json(
+        tags.filter(normalized.eq(any(&video.tags)))
+            .load(&*conn)
+            .expect("Could not get tags :("),
+    )
 }
