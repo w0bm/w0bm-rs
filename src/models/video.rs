@@ -7,9 +7,9 @@ use schema::*;
 
 use super::playlist::PlaylistMessage;
 use rocket::request::{FromParam, Request};
-use rocket::{Outcome, http::RawStr};
+use rocket::{http::RawStr, Outcome};
 
-#[derive(Debug, Clone, PartialEq, Serialize, Queryable, Identifiable, Associations)]
+#[derive(Debug, Clone, PartialEq, Serialize, Queryable, Identifiable)]
 pub struct Video {
     pub id: i64,
     pub file: String,

@@ -41,6 +41,7 @@ fn main() {
                 controllers::video::video_random,
                 controllers::video::video_id,
                 controllers::video::video_tags,
+                controllers::video::video_comments,
             ],
         )
         .manage(db::init_pool())

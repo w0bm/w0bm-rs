@@ -3,7 +3,9 @@ use db::DbConn;
 use diesel::prelude::*;
 use jwt::{decode, Validation};
 use rocket::request::{self, FromParam, FromRequest, Request};
-use rocket::{Outcome, State, http::{RawStr, Status}};
+use rocket::{
+    http::{RawStr, Status}, Outcome, State,
+};
 use schema::users;
 use std::ops::Deref;
 use util::*;

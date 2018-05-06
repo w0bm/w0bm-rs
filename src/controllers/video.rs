@@ -3,6 +3,8 @@ use rocket::response::status;
 use rocket_contrib::Json;
 
 use db::DbConn;
+use diesel::prelude::*;
+use models::comment::Comment;
 use models::playlist::PlaylistMessage;
 use models::tag::Tag;
 use models::user::User;
@@ -30,7 +32,6 @@ pub fn video_id(video: Video) -> Json<Video> {
 #[get("/video/<video>/tags")]
 pub fn video_tags(video: Video, conn: DbConn) -> Json<Vec<Tag>> {
     use diesel::dsl::any;
-    use diesel::prelude::*;
     use schema::tags::dsl::*;
 
     // TODO: Error handling. get rid of expect
@@ -38,5 +39,15 @@ pub fn video_tags(video: Video, conn: DbConn) -> Json<Vec<Tag>> {
         tags.filter(normalized.eq(any(&video.tags)))
             .load(&*conn)
             .expect("Could not get tags :("),
+    )
+}
+
+#[get("/video/<video>/comments")]
+pub fn video_comments(video: Video, conn: DbConn) -> Json<Vec<Comment>> {
+    // TODO: Error handling. get rid of expect
+    Json(
+        Comment::of_video(&video)
+            .load(&*conn)
+            .expect("Could not get Comments :("),
     )
 }

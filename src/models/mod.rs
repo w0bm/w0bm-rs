@@ -1,3 +1,4 @@
+pub mod comment;
 pub mod playlist;
 pub mod tag;
 pub mod user;

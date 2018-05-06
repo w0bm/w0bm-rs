@@ -2,9 +2,9 @@ use db::DbConn;
 use diesel::prelude::*;
 use jwt::{encode, Header};
 use models::user::{NewUser, Token, User};
-use rocket::State;
 use rocket::http::Status;
 use rocket::response::status;
+use rocket::State;
 use rocket_contrib::Json;
 use util::{hash_password, Secret};
 
