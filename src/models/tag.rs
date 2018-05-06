@@ -1,3 +1,5 @@
+use schema::tags;
+
 #[derive(Debug, Clone, Serialize, Deserialize, Identifiable, Queryable)]
 #[primary_key(normalized)]
 pub struct Tag {
