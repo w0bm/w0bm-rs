@@ -30,24 +30,23 @@ pub fn video_id(video: Video) -> Json<Video> {
 }
 
 #[get("/video/<video>/tags")]
-pub fn video_tags(video: Video, conn: DbConn) -> Json<Vec<Tag>> {
+pub fn video_tags(video: Video, conn: DbConn) -> Result<Json<Vec<Tag>>, status::Custom<String>> {
     use diesel::dsl::any;
     use schema::tags::dsl::*;
 
-    // TODO: Error handling. get rid of expect
-    Json(
-        tags.filter(normalized.eq(any(&video.tags)))
-            .load(&*conn)
-            .expect("Could not get tags :("),
-    )
+    tags.filter(normalized.eq(any(&video.tags)))
+        .load(&*conn)
+        .map(Json)
+        .map_err(|e| status::Custom(Status::NotFound, format!("{}", e.description())))
 }
 
 #[get("/video/<video>/comments")]
-pub fn video_comments(video: Video, conn: DbConn) -> Json<Vec<Comment>> {
-    // TODO: Error handling. get rid of expect
-    Json(
-        Comment::of_video(&video)
-            .load(&*conn)
-            .expect("Could not get Comments :("),
-    )
+pub fn video_comments(
+    video: Video,
+    conn: DbConn,
+) -> Result<Json<Vec<Comment>>, status::Custom<String>> {
+    Comment::of_video(&video)
+        .load(&*conn)
+        .map(Json)
+        .map_err(|e| status::Custom(Status::NotFound, format!("{}", e.description())))
 }
