@@ -34,6 +34,7 @@ pub fn video_tags(video: Video, conn: DbConn) -> Result<Json<Vec<Tag>>, status::
     use diesel::dsl::any;
     use schema::tags::dsl::*;
 
+    // TODO: Change to InternalServerError and Empty Vec instead of 404
     tags.filter(normalized.eq(any(&video.tags)))
         .load(&*conn)
         .map(Json)
@@ -45,6 +46,7 @@ pub fn video_comments(
     video: Video,
     conn: DbConn,
 ) -> Result<Json<Vec<Comment>>, status::Custom<String>> {
+    // TODO: Change to InternalServerError and Empty Vec instead of 404
     Comment::of_video(&video)
         .load(&*conn)
         .map(Json)
