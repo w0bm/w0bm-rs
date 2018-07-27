@@ -2,6 +2,11 @@ language: rust
 rust: 
   - stable
 
+addons:
+  apt:
+    packages:
+    - libssl-dev
+
 cache: cargo
 
 script:
