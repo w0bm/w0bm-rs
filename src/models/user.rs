@@ -60,8 +60,8 @@ pub struct NewUser {
 
 type WithId = ::diesel::dsl::Eq<users::id, i64>;
 type ById = ::diesel::dsl::Filter<users::table, WithId>;
-type WithUsername<'a> = ::diesel::dsl::Eq<users::username, &'a str>;
-type ByUsername<'a> = ::diesel::dsl::Filter<users::table, WithUsername<'a>>;
+type WithUsername = ::diesel::dsl::Eq<users::username, String>;
+type ByUsername = ::diesel::dsl::Filter<users::table, WithUsername>;
 
 impl User {
     pub fn with_id(id: i64) -> WithId {
@@ -70,10 +70,10 @@ impl User {
     pub fn by_id(id: i64) -> ById {
         users::dsl::users.filter(Self::with_id(id))
     }
-    pub fn with_username(username: &str) -> WithUsername {
+    pub fn with_username(username: String) -> WithUsername {
         users::username.eq(username)
     }
-    pub fn by_username(username: &str) -> ByUsername {
+    pub fn by_username(username: String) -> ByUsername {
         users::dsl::users.filter(Self::with_username(username))
     }
     pub fn check_pw(&self, pw: &[u8]) -> bool {

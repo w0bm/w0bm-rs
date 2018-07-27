@@ -90,20 +90,3 @@ impl Video {
         })
     }
 }
-
-impl<'a> FromParam<'a> for Video {
-    type Error = ();
-    fn from_param_with_request(param: &'a RawStr, req: &'a Request) -> Result<Self, Self::Error> {
-        let vid = param.parse().map_err(|_| ())?;
-        let conn = match req.guard::<DbConn>() {
-            Outcome::Success(c) => c,
-            _ => return Err(()),
-        };
-
-        Self::by_id(vid).first(&*conn).map_err(|_| ())
-    }
-
-    fn from_param(_: &'a RawStr) -> Result<Self, Self::Error> {
-        unreachable!()
-    }
-}
