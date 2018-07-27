@@ -50,10 +50,11 @@ pub fn register(
             .db
             .send(::db::Execute(::diesel::insert_into(users).values(creds)))
             .from_err()
+            .and_then(result)
             .map(|_| {
                 HttpResponse::Ok().json(json!({
                     "success": "Registration successful"
                 }))
-            }),
+            })
     )
 }

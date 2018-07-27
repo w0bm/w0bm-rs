@@ -1,19 +1,19 @@
-use argon2::{self, hash_encoded, verify_encoded, Config};
+use argon2::{hash_encoded, verify_encoded, Config};
 use rand::distributions::{Range, Sample};
 use ring::rand::*;
 use slug::slugify;
 use std::ops::Deref;
+use failure::Error;
 
-pub fn hash_password(pw: &[u8]) -> argon2::Result<String> {
+pub fn hash_password(pw: &[u8]) -> Result<String, Error> {
     let mut salt = [0u8; 10];
     SystemRandom::new()
-        .fill(&mut salt)
-        .map_err(|_| argon2::Error::DecodingFail)?;
-    hash_encoded(pw, &salt, &Config::default())
+        .fill(&mut salt)?;
+    hash_encoded(pw, &salt, &Config::default()).map_err(From::from)
 }
 
 pub fn verify_password(hash: &str, pw: &[u8]) -> bool {
-    verify_encoded(hash, pw).unwrap_or(false)
+    verify_encoded(hash, pw).map_err(|e| error!("{}", e)).unwrap_or(false)
 }
 
 #[derive(Clone, PartialEq, Hash, Debug)]
