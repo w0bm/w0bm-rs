@@ -1,48 +1,56 @@
-use db::DbConn;
+use actix_web::{HttpResponse, Json, Responder, State};
 use diesel::prelude::*;
+use failure::Error;
+use futures::future::{err, ok, result};
+use futures::Future;
 use jwt::{encode, Header};
 use models::user::{NewUser, Token, User};
-use rocket::http::Status;
-use rocket::response::status;
-use rocket::State;
-use rocket_contrib::Json;
-use util::{hash_password, Secret};
+use util::{hash_password};
 
-#[post("/login", format = "application/json", data = "<creds>")]
 pub fn login(
-    creds: Json<NewUser>,
-    conn: DbConn,
-    key: State<Secret>,
-) -> Result<Json<String>, status::Custom<String>> {
-    let u: User = User::by_username(&creds.username)
-        .first(&*conn)
-        .map_err(|_| status::Custom(Status::Unauthorized, "User not found".into()))?;
-
-    if !u.check_pw(creds.password.as_bytes()) {
-        return Err(status::Custom(
-            Status::Unauthorized,
-            "Invalid Password".into(),
-        ));
-    }
-
-    let token = encode(&Header::default(), &Token { user_id: u.id }, &**key)
-        .map_err(|e| status::Custom(Status::InternalServerError, format!("{}", e)))?;
-
-    Ok(Json(token))
+    (state, creds): (State<::AppState>, Json<NewUser>),
+) -> Box<Future<Item = impl Responder, Error = Error>> {
+    let creds = creds.into_inner();
+    Box::new(
+        state
+            .db
+            .send(::db::First::new(User::by_username(&creds.username)))
+            .from_err()
+            .and_then(result)
+            .then(|r: Result<User, _>| match r {
+                Ok(u) if u.check_pw(creds.password.as_bytes()) => ok(u),
+                Ok(u) => err(format_err!("Invalid Password").into()),
+                Err(e) => err(e.into()),
+            })
+            .map(|u| {
+                let token = encode(&Header::default(), &Token { user_id: u.id }, &*state.key);
+                match token {
+                    Ok(t) => HttpResponse::Ok().json(t),
+                    Err(e) => HttpResponse::Conflict()
+                        .json(json!({ "error": format_err!("JWT Error: {}", e) })),
+                }
+            }),
+    )
 }
 
-#[post("/register", format = "application/json", data = "<creds>")]
 pub fn register(
-    creds: Json<NewUser>,
-    conn: DbConn,
-) -> Result<Json<&'static str>, status::Custom<&'static str>> {
+    (state, creds): (State<::AppState>, Json<NewUser>),
+) -> Box<Future<Item = impl Responder, Error = Error>> {
     use schema::users::dsl::*;
-    let mut creds = creds.into_inner();
-    creds.password = hash_password(creds.password.as_bytes())
-        .map_err(|_| status::Custom(Status::InternalServerError, "Could not create user"))?;
-    ::diesel::insert_into(users)
-        .values(&creds)
-        .execute(&*conn)
-        .map_err(|_| status::Custom(Status::InternalServerError, "Could not create user"))
-        .map(|_| Json("Registration successful"))
+    let creds = creds.into_inner();
+    creds.password = match hash_password(creds.password.as_bytes()) {
+        Ok(p) => p,
+        Err(e) => return Box::new(err(e.into())),
+    };
+    Box::new(
+        state
+            .db
+            .send(::db::Execute(::diesel::insert_into(users).values(&creds)))
+            .from_err()
+            .map(|_| {
+                HttpResponse::Ok().json(json!({
+                    "success": "Registration successful"
+                }))
+            }),
+    )
 }

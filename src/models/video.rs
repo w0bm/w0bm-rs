@@ -1,13 +1,10 @@
 use chrono::prelude::*;
-use db::DbConn;
 use diesel::dsl::not;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use schema::*;
 
 use super::playlist::PlaylistMessage;
-use rocket::request::{FromParam, Request};
-use rocket::{http::RawStr, Outcome};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Queryable, Identifiable)]
 pub struct Video {

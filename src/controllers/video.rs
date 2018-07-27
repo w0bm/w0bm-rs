@@ -1,8 +1,4 @@
-use rocket::http::Status;
-use rocket::response::status;
-use rocket_contrib::Json;
 
-use db::DbConn;
 use diesel::prelude::*;
 use models::comment::Comment;
 use models::playlist::PlaylistMessage;
@@ -11,9 +7,7 @@ use models::user::User;
 use models::video::Video;
 use std::error::Error;
 
-#[get("/video/random")]
 pub fn video_random(
-    conn: DbConn,
     u: Option<User>,
 ) -> Result<Json<PlaylistMessage>, status::Custom<String>> {
     let def_filter = vec!["nsfw".into()];
@@ -24,13 +18,11 @@ pub fn video_random(
         .map_err(|e| status::Custom(Status::NotFound, format!("{}", e.description())))
 }
 
-#[get("/video/<video>")]
 pub fn video_id(video: Video) -> Json<Video> {
     Json(video)
 }
 
-#[get("/video/<video>/tags")]
-pub fn video_tags(video: Video, conn: DbConn) -> Result<Json<Vec<Tag>>, status::Custom<String>> {
+pub fn video_tags(video: Video) -> Result<Json<Vec<Tag>>, status::Custom<String>> {
     use diesel::dsl::any;
     use schema::tags::dsl::*;
 
@@ -41,10 +33,8 @@ pub fn video_tags(video: Video, conn: DbConn) -> Result<Json<Vec<Tag>>, status::
         .map_err(|e| status::Custom(Status::NotFound, format!("{}", e.description())))
 }
 
-#[get("/video/<video>/comments")]
 pub fn video_comments(
     video: Video,
-    conn: DbConn,
 ) -> Result<Json<Vec<Comment>>, status::Custom<String>> {
     // TODO: Change to InternalServerError and Empty Vec instead of 404
     Comment::of_video(&video)

@@ -16,6 +16,7 @@ pub fn verify_password(hash: &str, pw: &[u8]) -> bool {
     verify_encoded(hash, pw).unwrap_or(false)
 }
 
+#[derive(Clone, PartialEq, Hash, Debug)]
 pub struct Secret([u8; 32]);
 
 impl Deref for Secret {

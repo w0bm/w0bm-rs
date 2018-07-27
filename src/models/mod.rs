@@ -1,5 +1,5 @@
-pub mod comment;
-pub mod playlist;
-pub mod tag;
+//pub mod comment;
+//pub mod playlist;
+//pub mod tag;
 pub mod user;
-pub mod video;
+//pub mod video;

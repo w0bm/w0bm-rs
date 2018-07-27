@@ -1,44 +1,106 @@
-use diesel::pg::PgConnection;
-use r2d2;
-use r2d2_diesel::ConnectionManager;
-use rocket::http::Status;
-use rocket::request::{self, FromRequest};
-use rocket::{Outcome, Request, State};
-use std::env;
-use std::ops::Deref;
+use actix_web::actix::*;
+use diesel::helper_types::Limit;
+use diesel::query_dsl::methods::{ExecuteDsl, LimitDsl, LoadQuery};
+use diesel::r2d2::ConnectionManager;
+use diesel::{PgConnection, RunQueryDsl};
+use failure::Error;
+use r2d2::{self, PooledConnection};
+use std::marker::PhantomData;
 
-type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
+pub type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
+pub type Connection = PooledConnection<ConnectionManager<PgConnection>>;
 
-/// Initializes a database pool
-pub fn init_pool() -> Pool {
-    ::dotenv::dotenv().ok();
+pub struct DbExecutor(pub Pool);
 
-    let manager =
-        ConnectionManager::<PgConnection>::new(env::var("DATABASE_URL").expect("DATABASE_URL"));
-    r2d2::Pool::new(manager).expect("Could not initialize Database")
+pub struct Execute<T>(pub T);
+
+pub struct Load<T, U>(pub T, PhantomData<U>);
+impl<T, U> Load<T, U> {
+    pub fn new(n: T) -> Self {
+        Load(n, PhantomData)
+    }
 }
-
-pub struct DbConn(pub r2d2::PooledConnection<ConnectionManager<PgConnection>>);
-
-/// Attemts to retrieve a single connection from the managed database pool. If
-/// no pool is currently managed, fails with an `InternalServerError` status. If
-/// no connections are available, fails with a `ServiceUnavailable` status.
-impl<'a, 'r> FromRequest<'a, 'r> for DbConn {
-    type Error = ();
-
-    fn from_request(req: &'a Request<'r>) -> request::Outcome<DbConn, Self::Error> {
-        let pool = req.guard::<State<Pool>>()?;
-        match pool.get() {
-            Ok(conn) => Outcome::Success(DbConn(conn)),
-            Err(_) => Outcome::Failure((Status::ServiceUnavailable, ())),
-        }
+pub struct GetResult<T, U>(pub T, PhantomData<U>);
+impl<T, U> GetResult<T, U> {
+    pub fn new(n: T) -> Self {
+        GetResult(n, PhantomData)
+    }
+}
+pub struct First<T, U>(pub T, PhantomData<U>);
+impl<T, U> First<T, U> {
+    pub fn new(n: T) -> Self {
+        First(n, PhantomData)
     }
 }
 
-impl Deref for DbConn {
-    type Target = PgConnection;
+impl<T> Message for Execute<T> {
+    type Result = Result<usize, Error>;
+}
+impl<T, U: 'static> Message for Load<T, U> {
+    type Result = Result<Vec<U>, Error>;
+}
 
-    fn deref(&self) -> &Self::Target {
-        &self.0
+impl<T, U: 'static> Message for GetResult<T, U> {
+    type Result = Result<U, Error>;
+}
+
+impl<T, U: 'static> Message for First<T, U> {
+    type Result = Result<U, Error>;
+}
+
+impl Actor for DbExecutor {
+    type Context = SyncContext<Self>;
+}
+
+impl<T> Handler<Execute<T>> for DbExecutor
+where
+    T: RunQueryDsl<Connection> + ExecuteDsl<Connection>,
+{
+    type Result = <Execute<T> as Message>::Result;
+
+    fn handle(&mut self, Execute(msg): Execute<T>, _: &mut Self::Context) -> Self::Result {
+        let conn = self.0.get()?;
+        msg.execute(&conn).map_err(From::from)
+    }
+}
+
+impl<T, U: 'static> Handler<Load<T, U>> for DbExecutor
+where
+    T: RunQueryDsl<Connection> + LoadQuery<Connection, U>,
+{
+    type Result = <Load<T, U> as Message>::Result;
+
+    fn handle(&mut self, Load(msg, _): Load<T, U>, _: &mut Self::Context) -> Self::Result {
+        let conn = self.0.get()?;
+        msg.load(&conn).map_err(From::from)
+    }
+}
+
+impl<T, U: 'static> Handler<GetResult<T, U>> for DbExecutor
+where
+    T: RunQueryDsl<Connection> + LoadQuery<Connection, U>,
+{
+    type Result = <GetResult<T, U> as Message>::Result;
+
+    fn handle(
+        &mut self,
+        GetResult(msg, _): GetResult<T, U>,
+        _: &mut Self::Context,
+    ) -> Self::Result {
+        let conn = self.0.get()?;
+        msg.get_result::<U>(&conn).map_err(From::from)
+    }
+}
+
+impl<T, U: 'static> Handler<First<T, U>> for DbExecutor
+where
+    T: LimitDsl + RunQueryDsl<Connection>,
+    Limit<T>: LoadQuery<Connection, U>,
+{
+    type Result = <First<T, U> as Message>::Result;
+
+    fn handle(&mut self, First(msg, _): First<T, U>, _: &mut Self::Context) -> Self::Result {
+        let conn = self.0.get()?;
+        msg.first(&conn).map_err(From::from)
     }
 }

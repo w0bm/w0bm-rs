@@ -1,14 +1,13 @@
+use actix_web::{http::header, Error as ActixError, FromRequest, HttpRequest};
 use chrono::{DateTime, Utc};
-use db::DbConn;
+use db;
 use diesel::prelude::*;
+use futures::future::{err, ok, result, Future};
 use jwt::{decode, Validation};
-use rocket::request::{self, FromParam, FromRequest, Request};
-use rocket::{
-    http::{RawStr, Status}, Outcome, State,
-};
 use schema::users;
 use std::ops::Deref;
 use util::*;
+use AppState;
 
 #[derive(Debug, Clone, Serialize, Queryable, Identifiable, PartialEq)]
 pub struct User {
@@ -29,16 +28,18 @@ pub struct User {
 
 pub struct Admin(pub User);
 
-impl<'a, 'r> FromRequest<'a, 'r> for Admin {
-    type Error = ();
-    fn from_request(req: &'a Request<'r>) -> request::Outcome<Admin, ()> {
-        let u = req.guard::<User>()?;
-
-        if u.groups.iter().any(|g| g == "admin") {
-            Outcome::Success(Admin(u))
-        } else {
-            Outcome::Forward(())
-        }
+impl FromRequest<AppState> for Admin {
+    type Config = ();
+    type Result = Box<Future<Item = Admin, Error = ActixError>>;
+    fn from_request(req: &HttpRequest<AppState>, _: &Self::Config) -> Self::Result {
+        Box::new(User::extract(req).then(|u| match u {
+            Ok(user) => if user.groups.iter().any(|g| g == "admin") {
+                ok(Admin(user))
+            } else {
+                err(format_err!("User is not an Admin").into())
+            },
+            Err(e) => err(e),
+        }))
     }
 }
 
@@ -85,45 +86,54 @@ pub struct Token {
     pub user_id: i64,
 }
 
-impl<'a, 'r> FromRequest<'a, 'r> for User {
-    type Error = ();
+impl FromRequest<AppState> for User {
+    type Config = ();
+    type Result = Box<Future<Item = User, Error = ActixError>>;
 
-    fn from_request(req: &'a Request<'r>) -> request::Outcome<User, ()> {
+    fn from_request(req: &HttpRequest<AppState>, _: &Self::Config) -> Self::Result {
         use self::users::dsl;
-        let token = match req.headers().get_one("Authorization") {
-            Some(a) if a.starts_with("Bearer ") => &a[7..],
-            _ => return Outcome::Forward(()),
+        let token = match req.headers().get(header::AUTHORIZATION) {
+            Some(a) => a.to_str(),
+            None => return Box::new(err(format_err!("Missing Header").into())),
         };
-        let key = req.guard::<State<Secret>>()?;
+        let token = match token {
+            Ok(t) if t.starts_with("Bearer ") => &t[7..],
+            Ok(t) => return Box::new(err(format_err!("Invalid Header: {}", t).into())),
+            Err(e) => return Box::new(err(format_err!("Error: {}", e).into())),
+        };
+        let ref key = req.state().key;
         let token = match decode::<Token>(token, &**key, &Validation::default()) {
             Ok(t) => t.claims.user_id,
-            _ => return Outcome::Forward(()),
+            Err(e) => return Box::new(err(format_err!("Error: {}", e).into())),
         };
-        let conn = req.guard::<DbConn>()?;
 
-        match dsl::users.filter(dsl::id.eq(token)).first(&*conn) {
-            Ok(u) => Outcome::Success(u),
-            Err(_) => Outcome::Failure((Status::NotFound, ())),
-        }
+        let q = db::First::new(dsl::users.filter(dsl::id.eq(token)));
+        Box::new(
+            req.state()
+                .db
+                .send(q)
+                .from_err()
+                .and_then(|res| result(res.map_err(From::from))),
+        )
     }
 }
 
-impl<'a> FromParam<'a> for User {
-    type Error = ();
-    fn from_param_with_request(param: &'a RawStr, req: &'a Request) -> Result<Self, Self::Error> {
-        use self::users::dsl;
-        let uname = param.url_decode().map_err(|_| ())?;
-        let conn = match req.guard::<DbConn>() {
-            Outcome::Success(c) => c,
-            _ => return Err(()),
-        };
+// impl<'a> FromParam<'a> for User {
+//     type Error = ();
+//     fn from_param_with_request(param: &'a RawStr, req: &'a Request) -> Result<Self, Self::Error> {
+//         use self::users::dsl;
+//         let uname = param.url_decode().map_err(|_| ())?;
+//         let conn = match req.guard::<DbConn>() {
+//             Outcome::Success(c) => c,
+//             _ => return Err(()),
+//         };
 
-        dsl::users
-            .filter(dsl::username.eq(uname))
-            .first(&*conn)
-            .map_err(|_| ())
-    }
-    fn from_param(_: &'a RawStr) -> Result<Self, Self::Error> {
-        unreachable!()
-    }
-}
+//         dsl::users
+//             .filter(dsl::username.eq(uname))
+//             .first(&*conn)
+//             .map_err(|_| ())
+//     }
+//     fn from_param(_: &'a RawStr) -> Result<Self, Self::Error> {
+//         unreachable!()
+//     }
+// }
