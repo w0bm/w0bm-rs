@@ -51,8 +51,10 @@ fn main() {
 
     let key = util::generate_secret().expect("Error generating random secret");
 
-    let manager = ConnectionManager::<PgConnection>::new(std::env::var("DATABASE_URL").unwrap());
+    let manager = ConnectionManager::<PgConnection>::new(std::env::var("DATABASE_URL").expect("DATABASE_URL is missing"));
     let pool = db::Pool::new(manager).expect("Could not connect to Database 2");
+
+    let sys = System::new("w0bm-rs");
 
     let addr = SyncArbiter::start(num_cpus::get(), move || db::DbExecutor(pool.clone()));
 
@@ -68,10 +70,11 @@ fn main() {
                     })
             })
             .scope("/api/v1", |s| s)
-    }).bind("0.0.0.0:8000")
-        .unwrap()
-        .run();
+    }).bind("[::]:8000")
+        .expect("Could not bind")
+        .start();
 
+    sys.run();
     // rocket::ignite()
     //     .mount(
     //         "/api/v1",
