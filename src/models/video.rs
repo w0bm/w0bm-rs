@@ -1,8 +1,11 @@
 use chrono::prelude::*;
 use diesel::dsl::not;
-use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use schema::*;
+use db::DbExecutor;
+use futures::future::{result, Future};
+use failure::Error;
+use actix_web::actix::*;
 
 use super::playlist::PlaylistMessage;
 
@@ -19,26 +22,23 @@ pub struct Video {
     pub description: Option<String>,
 }
 
-type WithId = ::diesel::dsl::Eq<videos::id, i64>;
-type ById = ::diesel::dsl::Filter<videos::table, WithId>;
+struct RandomVideo(Vec<String>);
 
-impl Video {
-    pub fn with_id(id: i64) -> WithId {
-        videos::id.eq(id)
-    }
+impl Message for RandomVideo {
+    type Result = Result<PlaylistMessage, Error>;
+}
 
-    pub fn by_id(id: i64) -> ById {
-        videos::dsl::videos.filter(Self::with_id(id))
-    }
+impl Handler<RandomVideo> for DbExecutor {
+    type Result = <RandomVideo as Message>::Result;
 
-    pub fn random(filters: &[String], conn: &PgConnection) -> QueryResult<PlaylistMessage> {
+    fn handle(&mut self, RandomVideo(filters): RandomVideo, _: &mut Self::Context) -> Self::Result {
         use schema::videos::dsl::*;
+        let conn = self.0.get()?;
+        let query = videos.filter(not(tags.overlaps_with(&filters)));
 
-        let query = videos.filter(not(tags.overlaps_with(filters)));
-
-        let c = query.count().get_result(conn)?;
+        let c = query.count().get_result(&conn)?;
         if c < 1 {
-            return Err(::diesel::NotFound);
+            return Err(::diesel::NotFound.into());
         }
 
         // Find best option to do this (probably limit 3 always, and clamp s between [0, c))
@@ -48,11 +48,11 @@ impl Video {
             n => (3, n - 1),
         };
 
-        let mut vids: Vec<Self> = query
+        let mut vids: Vec<Video> = query
             .order(created_at.asc())
             .offset(s)
             .limit(limit)
-            .load(conn)?;
+            .load(&conn)?;
 
         let prev = if limit == 3 { Some(vids[0].id) } else { None };
         let next = if limit == 2 && vids.len() == 2 {
@@ -66,13 +66,13 @@ impl Video {
         let first = match prev {
             None => None,
             p if s == 0 => p,
-            _ => Some(query.select(id).order(created_at.asc()).first(conn)?),
+            _ => Some(query.select(id).order(created_at.asc()).first(&conn)?),
         };
 
         let last = match next {
             None => None,
             n if s == c - 2 => n,
-            _ => Some(query.select(id).order(created_at.desc()).first(conn)?),
+            _ => Some(query.select(id).order(created_at.desc()).first(&conn)?),
         };
 
         let video = if limit == 2 {
@@ -90,3 +90,23 @@ impl Video {
         })
     }
 }
+
+type WithId = ::diesel::dsl::Eq<videos::id, i64>;
+type ById = ::diesel::dsl::Filter<videos::table, WithId>;
+
+impl Video {
+    pub fn with_id(id: i64) -> WithId {
+        videos::id.eq(id)
+    }
+
+    pub fn by_id(id: i64) -> ById {
+        videos::dsl::videos.filter(Self::with_id(id))
+    }
+
+    pub fn random(filters: Vec<String>, state: &::AppState) -> impl Future<Item=PlaylistMessage, Error=Error> {
+        state.db.send(RandomVideo(filters))
+            .from_err()
+            .and_then(result)
+    }
+}
+

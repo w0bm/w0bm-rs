@@ -69,7 +69,12 @@ fn main() {
                         r.post().with_async(controllers::user::register)
                     })
             })
-            .scope("/api/v1", |s| s)
+            .scope("/api/v1", |scop| {
+                scop.resource("/video/random", |r| r.get().with_async(controllers::video::video_random))
+                    .resource("/video/{id}", |r| r.get().with_async(controllers::video::video_id))
+                    .resource("/video/{id}/tags", |r| r.get().with_async(controllers::video::video_tags))
+                    .resource("/video/{id}/comments", |r| r.get().with_async(controllers::video::video_comments))
+            })
     }).bind("[::]:8000")
         .expect("Could not bind")
         .start();

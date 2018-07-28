@@ -18,16 +18,18 @@ pub struct Comment {
     pub deleted_at: Option<DateTime<Utc>>,
 }
 
-type WithVideoId<'a> = ::diesel::dsl::Eq<comments::video_id, &'a i64>;
-type ByVideoId<'a> = ::diesel::dsl::Filter<comments::table, WithVideoId<'a>>;
-type WithUserId<'a> = ::diesel::dsl::Eq<comments::user_id, &'a i64>;
-type ByUserId<'a> = ::diesel::dsl::Filter<comments::table, WithUserId<'a>>;
+type WithVideoId = ::diesel::dsl::Eq<comments::video_id, i64>;
+type ByVideoId = ::diesel::dsl::Filter<comments::table, WithVideoId>;
+type WithUserId = ::diesel::dsl::Eq<comments::user_id, i64>;
+type ByUserId = ::diesel::dsl::Filter<comments::table, WithUserId>;
 
 impl Comment {
-    pub fn of_video(v: &Video) -> ByVideoId {
-        Self::belonging_to(v)
+    pub fn of_video(vid: i64) -> ByVideoId {
+        use schema::comments::dsl::*;
+        comments.filter(video_id.eq(vid))
     }
-    pub fn of_user(u: &User) -> ByUserId {
-        Self::belonging_to(u)
+    pub fn of_user(uid: i64) -> ByUserId {
+        use schema::comments::dsl::*;
+        comments.filter(user_id.eq(uid))
     }
 }

@@ -1,10 +1,13 @@
 use super::user::User;
 use super::video::Video;
 use chrono::{DateTime, Utc};
-use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use schema::{playlist_video, playlists};
 use util::rand_range;
+use actix_web::actix::*;
+use db::DbExecutor;
+use failure::Error;
+use futures::future::{result, Future};
 
 #[derive(Debug, Queryable, Identifiable, Serialize, Deserialize, Associations)]
 #[belongs_to(User)]
@@ -51,35 +54,32 @@ impl PlaylistMessage {
     }
 }
 
-type WithId = ::diesel::dsl::Eq<playlists::id, i64>;
-type ById = ::diesel::dsl::Filter<playlists::table, WithId>;
+struct RandomVideo(i64, bool, Vec<String>);
 
-impl Playlist {
-    pub fn with_id(id: i64) -> WithId {
-        playlists::id.eq(id)
-    }
-    pub fn by_id(id: i64) -> ById {
-        playlists::dsl::playlists.filter(Self::with_id(id))
-    }
-    pub fn random_video(
-        &self,
-        filter: &[String],
-        conn: &PgConnection,
-    ) -> QueryResult<PlaylistMessage> {
+impl Message for RandomVideo {
+    type Result = Result<PlaylistMessage, Error>;
+}
+
+impl Handler<RandomVideo> for DbExecutor {
+    type Result = <RandomVideo as Message>::Result;
+
+    fn handle(&mut self, RandomVideo(id, editable, filter): RandomVideo, _: &mut Self::Context) -> Self::Result {
         use diesel::dsl::not;
         use schema::playlist_video as pv;
         use schema::videos::dsl as v;
 
+        let ref conn = self.0.get()?;
+
         let query = v::videos.inner_join(pv::table).filter(
             pv::playlist_id
-                .eq(self.id)
-                .and(not(v::tags.overlaps_with(filter))),
+                .eq(id)
+                .and(not(v::tags.overlaps_with(&filter))),
         );
 
         let c = query.count().get_result(conn)?;
 
         if c < 1 {
-            return Err(::diesel::NotFound);
+            return Err(::diesel::NotFound.into());
         }
 
         let (limit, s) = match rand_range(0, c) {
@@ -88,7 +88,7 @@ impl Playlist {
         };
 
         let query2 = query.offset(s).limit(limit);
-        let mut vids: Vec<(Video, PlaylistVideo)> = if self.editable {
+        let mut vids: Vec<(Video, PlaylistVideo)> = if editable {
             query2
                 .order((pv::ordering.asc(), pv::created_at.asc()))
                 .load(&*conn)?
@@ -110,7 +110,7 @@ impl Playlist {
         let first = match prev {
             None => None,
             p if s == 0 => p,
-            _ => Some(if self.editable {
+            _ => Some(if editable {
                 query2
                     .order((pv::ordering.asc(), pv::created_at.asc()))
                     .first(conn)?
@@ -122,7 +122,7 @@ impl Playlist {
         let last = match next {
             None => None,
             p if s == c - 2 => p,
-            _ => Some(if self.editable {
+            _ => Some(if editable {
                 query2
                     .order((pv::ordering.desc(), pv::created_at.desc()))
                     .first(conn)?
@@ -144,5 +144,26 @@ impl Playlist {
             first,
             last,
         })
+    }
+}
+
+type WithId = ::diesel::dsl::Eq<playlists::id, i64>;
+type ById = ::diesel::dsl::Filter<playlists::table, WithId>;
+
+impl Playlist {
+    pub fn with_id(id: i64) -> WithId {
+        playlists::id.eq(id)
+    }
+    pub fn by_id(id: i64) -> ById {
+        playlists::dsl::playlists.filter(Self::with_id(id))
+    }
+    pub fn random_video(
+        &self,
+        filter: Vec<String>,
+        state: &::AppState
+    ) -> impl Future<Item=PlaylistMessage, Error=Error> {
+        state.db.send(RandomVideo(self.id, self.editable, filter))
+            .from_err()
+            .and_then(result)
     }
 }
