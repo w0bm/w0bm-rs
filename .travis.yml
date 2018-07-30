@@ -1,11 +1,9 @@
 language: rust
-rust: 
+rust:
   - stable
 
-addons:
-  apt:
-    packages:
-    - libssl-dev
+dist: xenial
+sudo: required
 
 cache: cargo
 
