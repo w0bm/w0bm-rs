@@ -3,7 +3,7 @@ rust:
   - stable
 
 dist: xenial
-sudo: required
+sudo: required #required to make travis use xenial
 
 cache: cargo
 
