@@ -5,7 +5,7 @@ authors = ["belst <belst@w0bm.com>"]
 
 [dependencies]
 actix-web = { version = "0.7.2", features = ["alpn"] }
-diesel = { version = "1.1", features = ["postgres", "chrono", "r2d2"] }
+diesel = { version = "1.1", features = ["postgres", "chrono", "r2d2", "serde_json"] }
 dotenv = "0.11"
 rust-argon2 = "0.3"
 chrono = { version = "0.4", features = ["serde"] }

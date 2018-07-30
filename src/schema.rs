@@ -1,3 +1,5 @@
+use diesel::sql_types::{Array, Text, Json};
+
 table! {
     comments (id) {
         id -> Int8,
@@ -99,3 +101,12 @@ allow_tables_to_appear_in_same_query!(
     users,
     videos,
 );
+
+sql_function!{
+    #[sql_name = "filter_random"]
+    fn filter_random(t: Array<Text>) -> Json;
+}
+// sql_function!{
+//     #[sql_name = "filter_random"]
+//     fn filter_random_deleted(t: Array<Text>, b: Bool) -> Json;
+// }
